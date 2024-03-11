@@ -1,10 +1,10 @@
 ﻿using System.IO;
 using System.Text;
 
-if (args.Length < 2)
+if (args.Length < 3)
 {
     Console.WriteLine("Usage:");
-    Console.WriteLine("Program.exe <file> <encoding> [includeBOM]");
+    Console.WriteLine("Program.exe <file> <inputEncoding> <outputEncoding> [--includeBOM] [--noBackup]");
     return 1;
 }
 
@@ -18,18 +18,42 @@ try
         return 2;
     }
 
-    var encodingStr = args.Length > 1 ? args[1] : "UTF8";
+    var inputEncodingStr = args[1];
+    var outputEncodingStr = args[2];
     var includeBOM = false;
-    if (args.Length > 2)
+    foreach (var arg in args)
     {
-        if (args[2].ToUpperInvariant() is "TRUE" or "YES")
+        if (arg.ToUpperInvariant() is "-INCLUDEBOM" or "--INCLUDEBOM" or "/INCLUDEBOM")
         {
             includeBOM = true;
+            break;
+        }
+    }
+
+    var backup = true;
+    foreach (var arg in args)
+    {
+        if (arg.ToUpperInvariant() is "-NOBACKUP" or "--NOBACKUP" or "/NOBACKUP")
+        {
+            backup = false;
+            break;
         }
     }
 
 #pragma warning disable SYSLIB0001 // Type or member is obsolete
-    var encoding = encodingStr.ToUpperInvariant() switch
+    var inputEncoding = inputEncodingStr.ToUpperInvariant() switch
+    {
+        "ASCII" or "ANSI" => Encoding.ASCII,
+        "UNICODE" or "UTF16" or "UTF16-LE" => new UnicodeEncoding(false, includeBOM, false),
+        "UTF8" => new UTF8Encoding(includeBOM, false),
+        "UTF7" => Encoding.UTF7,
+        "UTF32" => new UTF32Encoding(false, includeBOM, false),
+        "LATIN1" or "ISO8859-1" => Encoding.Latin1,
+        "BIGENDIANUNICODE" or "UTF16-BE" => new UnicodeEncoding(true, includeBOM, false),
+        _ => throw new InvalidOperationException($"Unknown encoding '{inputEncodingStr}'")
+    };
+
+    var outputEncoding = outputEncodingStr.ToUpperInvariant() switch
     {
         "ASCII" or "ANSI" => Encoding.ASCII,
         "UNICODE" or "UTF16" or "UTF16-LE" => new UnicodeEncoding(false, includeBOM, true),
@@ -38,13 +62,15 @@ try
         "UTF32" => new UTF32Encoding(false, includeBOM, true),
         "LATIN1" or "ISO8859-1" => Encoding.Latin1,
         "BIGENDIANUNICODE" or "UTF16-BE" => new UnicodeEncoding(true, includeBOM, true),
-        _ => throw new InvalidOperationException($"Unknown encoding '{encodingStr}'")
+        _ => throw new InvalidOperationException($"Unknown encoding '{inputEncodingStr}'")
     };
+
+
 #pragma warning restore SYSLIB0001 // Type or member is obsolete
 
     var tmpFile = Path.GetTempFileName();
-    using (var sr = new StreamReader(inputFile, Encoding.UTF8, true))
-    using (var sw = new StreamWriter(tmpFile, false, encoding))
+    using (var sr = new StreamReader(inputFile, inputEncoding, true))
+    using (var sw = new StreamWriter(tmpFile, false, outputEncoding))
     {
         while (sr.ReadLine() is string line)
         {
@@ -52,7 +78,11 @@ try
         }
     }
 
-    File.Copy(inputFile, $"{inputFile}.bak", true);
+    if (backup)
+    {
+        File.Copy(inputFile, $"{inputFile}.bak", true);
+    }
+
     File.Copy(tmpFile, inputFile, true);
     File.Delete(tmpFile);
 
