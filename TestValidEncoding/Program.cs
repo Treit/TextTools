@@ -46,7 +46,7 @@ try
 
     return 0;
 }
-catch (Exception e)
+catch
 {
     Console.WriteLine($"<invalid>,{new FileInfo(inputFile).FullName}");
     return 99;
