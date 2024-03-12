@@ -3,7 +3,7 @@
 if (args.Length == 0)
 {
     Console.WriteLine("Usage:");
-    Console.WriteLine("Program.exe <inputString> [encoding]");
+    Console.WriteLine("Program.exe <hexString> [encoding]");
     return 1;
 }
 
