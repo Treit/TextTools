@@ -1,53 +1,61 @@
-﻿using System.IO;
-using System.Text;
+﻿using TextTools;
 
 if (args.Length < 2)
 {
-    Console.WriteLine("Usage:");
-    Console.WriteLine("Program.exe <file> <encoding>");
+    PrintUsage();
     return 1;
 }
 
-var inputFile = args[0];
+var inputPath = args[0];
+var glob = "*.*";
+
+for (int i = 0; i < args.Length; i++)
+{
+    if (args[i].ToLowerInvariant() is "--glob" or "/glob"  or "-glob")
+    {
+        if (i + 1 >= args.Length)
+        {
+            PrintUsage();
+            return 1;
+        }
+
+        glob = args[i + 1];
+    }
+}
 
 try
 {
-    if (!File.Exists(inputFile))
+    if (!File.Exists(inputPath) && !Directory.Exists(inputPath))
     {
-        Console.WriteLine($"Could not find file '{inputFile}'.");
+        Console.WriteLine($"Could not find file or folder '{inputPath}'.");
         return 2;
     }
 
-    var encodingStr = args.Length > 1 ? args[1] : "UTF8";
+    var encodingStr = args[1];
 
+    var filesToCheck = File.Exists(inputPath) ? 
+        [inputPath] :
+        Directory.EnumerateFiles(inputPath, glob, new EnumerationOptions { RecurseSubdirectories = true });
 
-#pragma warning disable SYSLIB0001 // Type or member is obsolete
-    var encoding = encodingStr.ToUpperInvariant() switch
+    foreach (var file in filesToCheck)
     {
-        "ASCII" or "ANSI" => Encoding.ASCII,
-        "UNICODE" or "UTF16" or "UTF16-LE" => new UnicodeEncoding(false, false, true),
-        "UTF8" => new UTF8Encoding(false, true),
-        "UTF7" => Encoding.UTF7,
-        "UTF32" => new UTF32Encoding(false, false, true),
-        "LATIN1" or "ISO8859-1" => Encoding.Latin1,
-        "BIGENDIANUNICODE" or "UTF16-BE" => new UnicodeEncoding(true, false, true),
-        _ => throw new InvalidOperationException($"Unknown encoding '{encodingStr}'")
-    };
-#pragma warning restore SYSLIB0001 // Type or member is obsolete
+        var valid = EncodingValidator.CheckEncoding(file, encodingStr);
+        var validStr = valid ? "valid" : "invalid";
 
-    using (var sr = new StreamReader(inputFile, encoding, true))
-    {
-        while (sr.ReadLine() is string line)
-        {
-        }
+        Console.WriteLine($"{validStr},{new FileInfo(file).FullName}");
     }
 
-    Console.WriteLine($"<valid>,{new FileInfo(inputFile).FullName}");
-
     return 0;
+
 }
 catch (Exception e)
 {
-    Console.WriteLine($"<invalid>,{new FileInfo(inputFile).FullName}");
+    Console.WriteLine(e);
     return 99;
+}
+
+static void PrintUsage()
+{
+    Console.WriteLine("Usage:");
+    Console.WriteLine("Program.exe <file> <encoding> [--glob <pattern>]");
 }
