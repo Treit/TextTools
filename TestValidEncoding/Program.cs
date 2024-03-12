@@ -48,7 +48,7 @@ try
     return 0;
 
 }
-catch
+catch (Exception e)
 {
     Console.WriteLine(e);
     return 99;
